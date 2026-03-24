@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useAnalysis } from '../hooks/useAnalysis';
 import { useSettings } from '../stores/settings-store';
 import { useHistory } from '../stores/history-store';
+import { usePeer } from '../stores/peer-store';
 import { GatheringProgress } from '../components/progress/GatheringProgress';
 import { ReportView } from '../components/report/ReportView';
 
@@ -10,6 +11,7 @@ export function ReportPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { settings } = useSettings();
   const { addReport, getReport } = useHistory();
+  const { requestReport, broadcastReport, isConnected } = usePeer();
   const { state, startAnalysis, cancelAnalysis } = useAnalysis();
   const savedRef = useRef(false);
 
@@ -18,31 +20,58 @@ export function ReportPage() {
   const to = searchParams.get('to') || '';
   const historyId = searchParams.get('id') || '';
 
-  // Try to load from history
+  // Cache source tracking
   const [cachedReport, setCachedReport] = useState<string | null>(null);
   const [cachedCost, setCachedCost] = useState<number | undefined>(undefined);
   const [usingCache, setUsingCache] = useState(false);
+  const [cacheSource, setCacheSource] = useState<'local' | 'peer'>('local');
 
   useEffect(() => {
+    // 1. Check local history
     if (historyId) {
       const entry = getReport(historyId);
       if (entry) {
         setCachedReport(entry.rawResponse);
         setCachedCost(entry.costUsd);
         setUsingCache(true);
+        setCacheSource('local');
         return;
       }
     }
-    // No cache — run analysis
-    setCachedReport(null);
-    setUsingCache(false);
-    if (!pkg || !from || !to || !settings.claudeApiKey) return;
-    savedRef.current = false;
-    startAnalysis(pkg, from, to, settings.claudeApiKey, settings.githubToken || undefined);
+
+    // 2. Check peer cache
+    if (isConnected && pkg && from && to) {
+      requestReport(pkg, from, to).then(result => {
+        if (result) {
+          setCachedReport(result.rawResponse);
+          setCachedCost(result.costUsd);
+          setUsingCache(true);
+          setCacheSource('peer');
+          // Also save to local history
+          addReport({ pkg, fromVersion: from, toVersion: to, rawResponse: result.rawResponse, costUsd: result.costUsd });
+          return;
+        }
+        // 3. No cache anywhere — run analysis
+        runFreshAnalysis();
+      });
+      return;
+    }
+
+    // 3. No peer connection — run analysis directly
+    runFreshAnalysis();
+
+    function runFreshAnalysis() {
+      setCachedReport(null);
+      setUsingCache(false);
+      if (!pkg || !from || !to || !settings.claudeApiKey) return;
+      savedRef.current = false;
+      startAnalysis(pkg, from, to, settings.claudeApiKey, settings.githubToken || undefined);
+    }
+
     return () => cancelAnalysis();
   }, [pkg, from, to, historyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-save to history when analysis completes
+  // Auto-save to history + broadcast to peers when analysis completes
   useEffect(() => {
     if (state.status === 'complete' && !savedRef.current && pkg && from && to) {
       savedRef.current = true;
@@ -55,6 +84,8 @@ export function ReportPage() {
         outputTokens: state.usage?.outputTokens,
         costUsd: state.usage?.costUsd,
       });
+      // Broadcast to peers
+      broadcastReport({ pkg, from, to, id });
       setSearchParams(prev => {
         prev.set('id', id);
         return prev;
@@ -196,7 +227,7 @@ export function ReportPage() {
       {/* Cost / usage indicator */}
       {(costUsd !== undefined || usingCache) && (
         <div className="flex items-center gap-3 mb-3 text-[11px] font-mono text-text-muted">
-          {usingCache && <span>&#9679; loaded from cache</span>}
+          {usingCache && <span>&#9679; {cacheSource === 'peer' ? 'from peer cache' : 'loaded from cache'}</span>}
           {costUsd !== undefined && (
             <span title={usage ? `${usage.inputTokens.toLocaleString()} input + ${usage.outputTokens.toLocaleString()} output tokens` : ''}>
               cost: ${costUsd.toFixed(4)}

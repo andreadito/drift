@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   claudeApiKey: 'drift_claude_api_key',
   githubToken: 'drift_github_token',
   theme: 'drift_theme',
+  teamName: 'drift_team_name',
 } as const;
 
 function loadSettings(): AppSettings {
@@ -12,6 +13,7 @@ function loadSettings(): AppSettings {
     claudeApiKey: localStorage.getItem(STORAGE_KEYS.claudeApiKey) || '',
     githubToken: localStorage.getItem(STORAGE_KEYS.githubToken) || '',
     theme: (localStorage.getItem(STORAGE_KEYS.theme) as Theme) || 'dark',
+    teamName: localStorage.getItem(STORAGE_KEYS.teamName) || '',
   };
 }
 
@@ -27,6 +29,11 @@ function saveSettings(settings: AppSettings) {
     localStorage.removeItem(STORAGE_KEYS.githubToken);
   }
   localStorage.setItem(STORAGE_KEYS.theme, settings.theme);
+  if (settings.teamName) {
+    localStorage.setItem(STORAGE_KEYS.teamName, settings.teamName);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.teamName);
+  }
 }
 
 function applyTheme(theme: Theme) {
@@ -76,7 +83,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearSettings = useCallback(() => {
-    const empty: AppSettings = { claudeApiKey: '', githubToken: '', theme: 'dark' };
+    const empty: AppSettings = { claudeApiKey: '', githubToken: '', theme: 'dark', teamName: '' };
     saveSettings(empty);
     setSettings(empty);
   }, []);

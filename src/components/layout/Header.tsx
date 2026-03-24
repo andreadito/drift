@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useSettings } from '../../stores/settings-store';
+import { PeerIndicator } from './PeerIndicator';
 
 export function Header() {
   const location = useLocation();
@@ -33,6 +34,7 @@ export function Header() {
               settings
             </Link>
           </nav>
+          <PeerIndicator />
           <div className="w-px h-4 bg-border" />
           <button
             onClick={cycleTheme}

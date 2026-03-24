@@ -4,6 +4,7 @@ export interface AppSettings {
   claudeApiKey: string;
   githubToken: string;
   theme: Theme;
+  teamName: string;
 }
 
 export interface ReportHistoryEntry {
