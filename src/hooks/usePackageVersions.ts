@@ -4,6 +4,10 @@ import { getPackageMetadata } from '../services/npm-registry';
 export interface VersionEntry {
   version: string;
   date?: string;
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: boolean;
 }
 
 export function usePackageVersions(packageName: string) {
@@ -27,15 +31,22 @@ export function usePackageVersions(packageName: string) {
     (async () => {
       try {
         const metadata = await getPackageMetadata(packageName, controller.signal);
-        const { valid, rcompare } = await import('semver');
+        const { valid, rcompare, parse } = await import('semver');
 
         const entries: VersionEntry[] = Object.keys(metadata.versions)
           .filter(v => valid(v))
           .sort((a, b) => rcompare(a, b))
-          .map(v => ({
-            version: v,
-            date: metadata.time?.[v]?.split('T')[0],
-          }));
+          .map(v => {
+            const parsed = parse(v)!;
+            return {
+              version: v,
+              date: metadata.time?.[v]?.split('T')[0],
+              major: parsed.major,
+              minor: parsed.minor,
+              patch: parsed.patch,
+              prerelease: parsed.prerelease.length > 0,
+            };
+          });
 
         setVersions(entries);
       } catch (err) {

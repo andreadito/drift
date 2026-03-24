@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { PackageInputForm } from '../components/package-input/PackageInputForm';
+import { ReportHistory } from '../components/history/ReportHistory';
 
 const EXAMPLES = [
   { pkg: 'axios', from: '0.27.2', to: '1.7.9', label: 'axios 0.27→1.7' },
@@ -23,7 +24,6 @@ export function HomePage() {
 
       <PackageInputForm />
 
-      {/* Trust badge */}
       <div className="mt-6 flex items-center gap-1.5 text-[11px] font-mono text-text-muted">
         <span>&#128274;</span>
         <span>Your API keys never leave your browser</span>
@@ -43,6 +43,8 @@ export function HomePage() {
           ))}
         </div>
       </div>
+
+      <ReportHistory />
     </div>
   );
 }

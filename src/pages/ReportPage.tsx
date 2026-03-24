@@ -1,24 +1,71 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAnalysis } from '../hooks/useAnalysis';
 import { useSettings } from '../stores/settings-store';
+import { useHistory } from '../stores/history-store';
 import { GatheringProgress } from '../components/progress/GatheringProgress';
 import { ReportView } from '../components/report/ReportView';
 
 export function ReportPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { settings } = useSettings();
+  const { addReport, getReport } = useHistory();
   const { state, startAnalysis, cancelAnalysis } = useAnalysis();
+  const savedRef = useRef(false);
 
   const pkg = searchParams.get('pkg') || '';
   const from = searchParams.get('from') || '';
   const to = searchParams.get('to') || '';
+  const historyId = searchParams.get('id') || '';
+
+  // Try to load from history
+  const [cachedReport, setCachedReport] = useState<string | null>(null);
+  const [usingCache, setUsingCache] = useState(false);
 
   useEffect(() => {
+    if (historyId) {
+      const entry = getReport(historyId);
+      if (entry) {
+        setCachedReport(entry.rawResponse);
+        setUsingCache(true);
+        return;
+      }
+    }
+    // No cache — run analysis
+    setCachedReport(null);
+    setUsingCache(false);
     if (!pkg || !from || !to || !settings.claudeApiKey) return;
+    savedRef.current = false;
     startAnalysis(pkg, from, to, settings.claudeApiKey, settings.githubToken || undefined);
     return () => cancelAnalysis();
-  }, [pkg, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pkg, from, to, historyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save to history when analysis completes
+  useEffect(() => {
+    if (state.status === 'complete' && !savedRef.current && pkg && from && to) {
+      savedRef.current = true;
+      const id = addReport({ pkg, fromVersion: from, toVersion: to, rawResponse: state.rawAiResponse });
+      // Update URL with history id (without re-triggering analysis)
+      setSearchParams(prev => {
+        prev.set('id', id);
+        return prev;
+      }, { replace: true });
+    }
+  }, [state.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleReanalyze = () => {
+    setCachedReport(null);
+    setUsingCache(false);
+    savedRef.current = false;
+    // Remove id from URL
+    setSearchParams(prev => {
+      prev.delete('id');
+      return prev;
+    }, { replace: true });
+    if (settings.claudeApiKey) {
+      startAnalysis(pkg, from, to, settings.claudeApiKey, settings.githubToken || undefined);
+    }
+  };
 
   if (!pkg || !from || !to) {
     return (
@@ -31,7 +78,7 @@ export function ReportPage() {
     );
   }
 
-  if (!settings.claudeApiKey) {
+  if (!settings.claudeApiKey && !usingCache) {
     return (
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="text-center font-mono">
@@ -42,9 +89,14 @@ export function ReportPage() {
     );
   }
 
+  const reportMarkdown = usingCache ? cachedReport : state.rawAiResponse;
+  const isComplete = usingCache || state.status === 'complete';
+  const isWorking = !usingCache && (state.status === 'gathering' || state.status === 'analyzing');
+
   const handleCopyReport = () => {
+    if (!reportMarkdown) return;
     try {
-      let cleaned = state.rawAiResponse.trim();
+      let cleaned = reportMarkdown.trim();
       if (cleaned.startsWith('```')) {
         cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
       }
@@ -82,7 +134,7 @@ export function ReportPage() {
       }
       navigator.clipboard.writeText(lines.join('\n'));
     } catch {
-      navigator.clipboard.writeText(state.rawAiResponse);
+      navigator.clipboard.writeText(reportMarkdown);
     }
   };
 
@@ -101,15 +153,25 @@ export function ReportPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {state.status === 'complete' && (
-            <button
-              onClick={handleCopyReport}
-              className="px-2.5 py-1 bg-surface border border-border rounded text-[11px] font-mono text-text-muted hover:text-text transition-colors"
-            >
-              copy report
-            </button>
+          {isComplete && (
+            <>
+              <button
+                onClick={handleCopyReport}
+                className="px-2.5 py-1 bg-surface border border-border rounded text-[11px] font-mono text-text-muted hover:text-text transition-colors"
+              >
+                copy report
+              </button>
+              {usingCache && settings.claudeApiKey && (
+                <button
+                  onClick={handleReanalyze}
+                  className="px-2.5 py-1 bg-primary/10 border border-primary/20 text-primary-light rounded text-[11px] font-mono transition-colors hover:bg-primary/15"
+                >
+                  re-analyze
+                </button>
+              )}
+            </>
           )}
-          {(state.status === 'gathering' || state.status === 'analyzing') && (
+          {isWorking && (
             <button
               onClick={cancelAnalysis}
               className="px-2.5 py-1 bg-danger/10 border border-danger/20 text-danger rounded text-[11px] font-mono transition-colors"
@@ -120,20 +182,27 @@ export function ReportPage() {
         </div>
       </div>
 
+      {/* Cache indicator */}
+      {usingCache && (
+        <div className="flex items-center gap-1.5 mb-3 text-[11px] font-mono text-text-muted">
+          <span>&#9679;</span> loaded from cache
+        </div>
+      )}
+
       {/* Progress */}
-      {(state.status === 'gathering' || state.status === 'analyzing') && (
+      {isWorking && (
         <div className="mb-4">
           <GatheringProgress steps={state.steps} />
         </div>
       )}
 
       {/* Error */}
-      {state.status === 'error' && (
+      {state.status === 'error' && !usingCache && (
         <div className="bg-danger/8 border border-danger/20 rounded-lg p-3 mb-4">
           <p className="text-danger text-xs font-mono font-medium mb-0.5">error</p>
           <p className="text-danger/80 text-[11px]">{state.error}</p>
           <button
-            onClick={() => startAnalysis(pkg, from, to, settings.claudeApiKey, settings.githubToken || undefined)}
+            onClick={handleReanalyze}
             className="mt-2 px-2.5 py-1 bg-danger/10 border border-danger/20 text-danger rounded text-[11px] font-mono transition-colors"
           >
             retry
@@ -142,11 +211,11 @@ export function ReportPage() {
       )}
 
       {/* Report */}
-      {state.status === 'analyzing' && state.rawAiResponse && (
+      {!usingCache && state.status === 'analyzing' && state.rawAiResponse && (
         <ReportView markdown={state.rawAiResponse} streaming />
       )}
-      {state.status === 'complete' && (
-        <ReportView markdown={state.rawAiResponse} />
+      {isComplete && reportMarkdown && (
+        <ReportView markdown={reportMarkdown} />
       )}
     </div>
   );

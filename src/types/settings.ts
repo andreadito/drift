@@ -5,3 +5,12 @@ export interface AppSettings {
   githubToken: string;
   theme: Theme;
 }
+
+export interface ReportHistoryEntry {
+  id: string;
+  pkg: string;
+  fromVersion: string;
+  toVersion: string;
+  timestamp: number;
+  rawResponse: string;
+}
