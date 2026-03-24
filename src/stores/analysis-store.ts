@@ -10,6 +10,7 @@ export const initialAnalysisState: AnalysisState = {
   status: 'idle',
   steps: makeInitialSteps(),
   rawAiResponse: '',
+  usage: null,
   error: null,
 };
 
@@ -25,6 +26,8 @@ export function analysisReducer(state: AnalysisState, action: AnalysisAction): A
       };
     case 'AI_CHUNK':
       return { ...state, rawAiResponse: state.rawAiResponse + action.text };
+    case 'USAGE':
+      return { ...state, usage: action.usage };
     case 'COMPLETE':
       return { ...state, status: 'complete', rawAiResponse: action.report };
     case 'ERROR':

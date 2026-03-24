@@ -20,6 +20,7 @@ export function ReportPage() {
 
   // Try to load from history
   const [cachedReport, setCachedReport] = useState<string | null>(null);
+  const [cachedCost, setCachedCost] = useState<number | undefined>(undefined);
   const [usingCache, setUsingCache] = useState(false);
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export function ReportPage() {
       const entry = getReport(historyId);
       if (entry) {
         setCachedReport(entry.rawResponse);
+        setCachedCost(entry.costUsd);
         setUsingCache(true);
         return;
       }
@@ -44,8 +46,15 @@ export function ReportPage() {
   useEffect(() => {
     if (state.status === 'complete' && !savedRef.current && pkg && from && to) {
       savedRef.current = true;
-      const id = addReport({ pkg, fromVersion: from, toVersion: to, rawResponse: state.rawAiResponse });
-      // Update URL with history id (without re-triggering analysis)
+      const id = addReport({
+        pkg,
+        fromVersion: from,
+        toVersion: to,
+        rawResponse: state.rawAiResponse,
+        inputTokens: state.usage?.inputTokens,
+        outputTokens: state.usage?.outputTokens,
+        costUsd: state.usage?.costUsd,
+      });
       setSearchParams(prev => {
         prev.set('id', id);
         return prev;
@@ -92,6 +101,8 @@ export function ReportPage() {
   const reportMarkdown = usingCache ? cachedReport : state.rawAiResponse;
   const isComplete = usingCache || state.status === 'complete';
   const isWorking = !usingCache && (state.status === 'gathering' || state.status === 'analyzing');
+  const costUsd = usingCache ? cachedCost : state.usage?.costUsd;
+  const usage = usingCache ? undefined : state.usage;
 
   const handleCopyReport = () => {
     if (!reportMarkdown) return;
@@ -182,13 +193,18 @@ export function ReportPage() {
         </div>
       </div>
 
-      {/* Cache indicator */}
-      {usingCache && (
-        <div className="flex items-center gap-1.5 mb-3 text-[11px] font-mono text-text-muted">
-          <span>&#9679;</span> loaded from cache
+      {/* Cost / usage indicator */}
+      {(costUsd !== undefined || usingCache) && (
+        <div className="flex items-center gap-3 mb-3 text-[11px] font-mono text-text-muted">
+          {usingCache && <span>&#9679; loaded from cache</span>}
+          {costUsd !== undefined && (
+            <span title={usage ? `${usage.inputTokens.toLocaleString()} input + ${usage.outputTokens.toLocaleString()} output tokens` : ''}>
+              cost: ${costUsd.toFixed(4)}
+              {usage && <span className="text-text-muted/50 ml-1">({(usage.inputTokens + usage.outputTokens).toLocaleString()} tokens)</span>}
+            </span>
+          )}
         </div>
       )}
-
       {/* Progress */}
       {isWorking && (
         <div className="mb-4">

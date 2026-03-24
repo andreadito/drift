@@ -1,9 +1,18 @@
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export type StreamEvent =
+  | { type: 'text'; text: string }
+  | { type: 'usage'; usage: TokenUsage };
+
 export async function* streamClaudeResponse(
   systemPrompt: string,
   userMessage: string,
   apiKey: string,
   signal?: AbortSignal
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamEvent> {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -30,6 +39,8 @@ export async function* streamClaudeResponse(
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let inputTokens = 0;
+  let outputTokens = 0;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -42,17 +53,36 @@ export async function* streamClaudeResponse(
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6).trim();
-      if (data === '[DONE]') return;
+      if (data === '[DONE]') {
+        yield { type: 'usage', usage: { inputTokens, outputTokens } };
+        return;
+      }
 
       try {
         const event = JSON.parse(data);
+
         if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-          yield event.delta.text;
+          yield { type: 'text', text: event.delta.text };
+        }
+
+        // Capture usage from message_start
+        if (event.type === 'message_start' && event.message?.usage) {
+          inputTokens = event.message.usage.input_tokens || 0;
+        }
+
+        // Capture output tokens from message_delta
+        if (event.type === 'message_delta' && event.usage) {
+          outputTokens = event.usage.output_tokens || 0;
         }
       } catch {
         // Skip malformed SSE events
       }
     }
+  }
+
+  // If stream ended without [DONE], still yield usage
+  if (inputTokens > 0 || outputTokens > 0) {
+    yield { type: 'usage', usage: { inputTokens, outputTokens } };
   }
 }
 

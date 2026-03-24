@@ -40,6 +40,9 @@ export function useAnalysis() {
           case 'ai-chunk':
             dispatch({ type: 'AI_CHUNK', text: event.text });
             break;
+          case 'usage':
+            dispatch({ type: 'USAGE', usage: event.usage });
+            break;
           case 'complete':
             dispatch({ type: 'COMPLETE', report: event.report });
             break;

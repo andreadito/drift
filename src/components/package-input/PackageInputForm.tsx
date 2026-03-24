@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PackageNameInput } from './PackageNameInput';
 import { VersionSelect } from './VersionSelect';
@@ -22,6 +22,23 @@ export function PackageInputForm() {
   }, []);
 
   const canSubmit = selectedPackage && fromVersion && toVersion && fromVersion !== toVersion && settings.claudeApiKey;
+
+  // Estimate version span for cost warning
+  const versionSpan = useMemo(() => {
+    if (!fromVersion || !toVersion) return 0;
+    const fromIdx = versions.findIndex(v => v.version === fromVersion);
+    const toIdx = versions.findIndex(v => v.version === toVersion);
+    if (fromIdx === -1 || toIdx === -1) return 0;
+    return Math.abs(fromIdx - toIdx);
+  }, [fromVersion, toVersion, versions]);
+
+  const isMajorJump = useMemo(() => {
+    if (!fromVersion || !toVersion) return false;
+    const fromEntry = versions.find(v => v.version === fromVersion);
+    const toEntry = versions.find(v => v.version === toVersion);
+    if (!fromEntry || !toEntry) return false;
+    return Math.abs(fromEntry.major - toEntry.major) >= 2;
+  }, [fromVersion, toVersion, versions]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +78,14 @@ export function PackageInputForm() {
           Add your Claude API key in{' '}
           <a href="/settings" className="underline text-warning hover:text-warning/80">settings</a>{' '}
           to enable analysis.
+        </p>
+      )}
+
+      {(versionSpan > 50 || isMajorJump) && fromVersion && toVersion && (
+        <p className="text-[11px] font-mono text-text-muted bg-surface-light border border-border rounded px-2.5 py-1.5">
+          {isMajorJump ? '&#9888; Large version jump' : `&#9888; ${versionSpan} versions apart`}
+          {' — '}more data means more tokens sent to Claude, which costs more.
+          {versionSpan > 100 && ' Consider narrowing the range for a cheaper analysis.'}
         </p>
       )}
 

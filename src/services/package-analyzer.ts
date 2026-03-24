@@ -127,9 +127,15 @@ export async function* analyzePackage(
     const userPrompt = buildUserPrompt(gathered as GatheredData);
     let fullResponse = '';
 
-    for await (const chunk of streamClaudeResponse(systemPrompt, userPrompt, claudeApiKey, signal)) {
-      fullResponse += chunk;
-      yield { type: 'ai-chunk', text: chunk };
+    for await (const event of streamClaudeResponse(systemPrompt, userPrompt, claudeApiKey, signal)) {
+      if (event.type === 'text') {
+        fullResponse += event.text;
+        yield { type: 'ai-chunk', text: event.text };
+      } else if (event.type === 'usage') {
+        // Claude Sonnet pricing: $3/M input, $15/M output
+        const costUsd = (event.usage.inputTokens * 3 + event.usage.outputTokens * 15) / 1_000_000;
+        yield { type: 'usage', usage: { inputTokens: event.usage.inputTokens, outputTokens: event.usage.outputTokens, costUsd } };
+      }
     }
 
     yield { type: 'step', step: 'ai-analysis', status: 'done', summary: 'Analysis complete' };

@@ -46,6 +46,9 @@ export function ReportHistory() {
               </span>
             </button>
             <div className="flex items-center gap-2 flex-shrink-0">
+              {entry.costUsd !== undefined && (
+                <span className="text-[10px] font-mono text-text-muted">${entry.costUsd.toFixed(4)}</span>
+              )}
               <span className="text-[10px] font-mono text-text-muted">{timeAgo(entry.timestamp)}</span>
               <button
                 onClick={(e) => { e.stopPropagation(); deleteReport(entry.id); }}

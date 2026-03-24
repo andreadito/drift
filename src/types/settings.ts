@@ -13,4 +13,7 @@ export interface ReportHistoryEntry {
   toVersion: string;
   timestamp: number;
   rawResponse: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  costUsd?: number;
 }
