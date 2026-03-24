@@ -2,6 +2,10 @@
 
 Analyze npm package version drift. Get AI-powered migration reports with actionable steps.
 
+![drift - dark mode](./docs/screenshot-dark.png)
+
+![drift - light mode](./docs/screenshot-light.png)
+
 ## What it does
 
 Enter an npm package name, pick a "from" and "to" version, and drift will:
