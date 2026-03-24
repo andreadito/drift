@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/* Dark theme (default) */
+:root {
+  --c-primary: #6366f1;
+  --c-primary-light: #818cf8;
+  --c-primary-dark: #4f46e5;
+  --c-surface: #12121e;
+  --c-surface-light: #1a1a2e;
+  --c-surface-lighter: #24243a;
+  --c-danger: #ef4444;
+  --c-warning: #f59e0b;
+  --c-success: #22c55e;
+  --c-text: #e2e8f0;
+  --c-text-muted: #64748b;
+  --c-bg: #0a0a12;
+  --c-code-bg: #08080f;
+  --c-border: #1e1e30;
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --c-primary: #4f46e5;
+  --c-primary-light: #6366f1;
+  --c-primary-dark: #4338ca;
+  --c-surface: #ffffff;
+  --c-surface-light: #f1f5f9;
+  --c-surface-lighter: #e2e8f0;
+  --c-danger: #dc2626;
+  --c-warning: #d97706;
+  --c-success: #16a34a;
+  --c-text: #0f172a;
+  --c-text-muted: #64748b;
+  --c-bg: #f8fafc;
+  --c-code-bg: #f1f5f9;
+  --c-border: #e2e8f0;
+}
+
+@theme {
+  --color-primary: var(--c-primary);
+  --color-primary-light: var(--c-primary-light);
+  --color-primary-dark: var(--c-primary-dark);
+  --color-surface: var(--c-surface);
+  --color-surface-light: var(--c-surface-light);
+  --color-surface-lighter: var(--c-surface-lighter);
+  --color-danger: var(--c-danger);
+  --color-warning: var(--c-warning);
+  --color-success: var(--c-success);
+  --color-text: var(--c-text);
+  --color-text-muted: var(--c-text-muted);
+  --color-bg: var(--c-bg);
+  --color-code-bg: var(--c-code-bg);
+  --color-border: var(--c-border);
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.font-mono {
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-surface-lighter); border-radius: 3px; }
+
+.dot-grid {
+  background-image: radial-gradient(circle, var(--c-border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
